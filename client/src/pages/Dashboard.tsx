@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react'; // Added useState
+import React, { useEffect, useState } from 'react';
 import { useNotes } from '../hooks/useNote';
 import NoteCard from '../components/NoteCard';
-import NoteModal from '../components/NoteModal'; // Import the Modal
+import NoteModal from '../components/NoteModal';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { useInView } from 'react-intersection-observer';
+import { type Note } from '../types';
 
 const Dashboard: React.FC = () => {
-    const [isModalOpen, setIsModalOpen] = useState(false); // Modal visibility state
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [noteToEdit, setNoteToEdit] = useState<Note | null>(null); // Track note being active for edit
     
     const { 
         data, 
@@ -29,6 +31,16 @@ const Dashboard: React.FC = () => {
         }
     }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+    const handleEditInitiate = (note: Note) => {
+        setNoteToEdit(note);
+        setIsModalOpen(true);
+    };
+
+    const handleModalClose = () => {
+        setIsModalOpen(false);
+        setNoteToEdit(null); // Clear selection state completely on exit
+    };
+
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             <div className="flex justify-between items-center mb-8">
@@ -36,7 +48,6 @@ const Dashboard: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900">My Notes</h1>
                     <p className="text-gray-500 mt-1">Manage your thoughts and ideas securely.</p>
                 </div>
-                {/* Click event hooks into opening our modal */}
                 <button 
                     onClick={() => setIsModalOpen(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors"
@@ -46,7 +57,6 @@ const Dashboard: React.FC = () => {
                 </button>
             </div>
 
-            {/* ... keeping error, loading, empty, and grid rendering exactly the same ... */}
             {isError && (
                 <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-8 border border-red-100">
                     {(error as Error).message}
@@ -68,7 +78,11 @@ const Dashboard: React.FC = () => {
                         {data?.pages.map((page, i) => (
                             <React.Fragment key={i}>
                                 {page.notes.map((note) => (
-                                    <NoteCard key={note._id} note={note} />
+                                    <NoteCard 
+                                        key={note._id} 
+                                        note={note} 
+                                        onEditClick={handleEditInitiate} // Connect update callback
+                                    />
                                 ))}
                             </React.Fragment>
                         ))}
@@ -86,8 +100,11 @@ const Dashboard: React.FC = () => {
                 </>
             )}
 
-            {/* Render the structural Modal component at the root level of page context */}
-            <NoteModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+            <NoteModal 
+                isOpen={isModalOpen} 
+                onClose={handleModalClose} 
+                noteToEdit={noteToEdit} // Supply condition context
+            />
         </div>
     );
 };

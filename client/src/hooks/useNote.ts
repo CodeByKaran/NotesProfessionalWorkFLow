@@ -41,3 +41,39 @@ export const useCreateNote = () => {
         },
     });
 };
+
+// TypeScript payload for updating an existing note
+interface UpdateNotePayload {
+    id: string;
+    title: string;
+    content: string;
+    tags?: string[];
+}
+
+export const useUpdateNote = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, ...updatedData }: UpdateNotePayload) => {
+            const { data } = await api.put<Note>(`/notes/${id}`, updatedData);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notes'] });
+        },
+    });
+};
+
+export const useDeleteNote = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const { data } = await api.delete<{ message: string }>(`/notes/${id}`);
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notes'] });
+        },
+    });
+};
