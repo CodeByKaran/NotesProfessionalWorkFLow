@@ -1,28 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { type Note } from '../types';
 
+// Define the shape of our new paginated API response
+interface FetchNotesResponse {
+    notes: Note[];
+    nextPage: number | null;
+    totalNotes: number;
+}
+
 export const useNotes = () => {
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const fetchNotes = async () => {
-        try {
-            setIsLoading(true);
-            setError(null);
-            const response = await api.get<Note[]>('/notes');
-            setNotes(response.data);
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch notes');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchNotes();
-    }, []);
-
-    return { notes, isLoading, error, refetch: fetchNotes };
+    return useInfiniteQuery({
+        queryKey: ['notes'], // The unique cache key for this data
+        queryFn: async ({ pageParam = 1 }) => {
+            const { data } = await api.get<FetchNotesResponse>(`/notes?page=${pageParam}&limit=10`);
+            return data;
+        },
+        initialPageParam: 1, // Start on page 1
+        getNextPageParam: (lastPage) => lastPage.nextPage, // React Query will use this to fetch the next chunk
+    });
 };

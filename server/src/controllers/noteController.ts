@@ -1,12 +1,31 @@
 import { Request, Response } from "express";
 import Note from "../models/Note.js";
 
-// @desc    Get all notes
+// @desc    Get all notes (Paginated)
 // @route   GET /api/notes
 export const getNotes = async (req: Request, res: Response): Promise<void> => {
     try {
-        const notes = await Note.find().sort({ createdAt: -1 });
-        res.status(200).json(notes);
+        // 1. Parse pagination queries (default to page 1, 10 items per page)
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        // 2. Fetch the specific chunk of data
+        const notes = await Note.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        // 3. Count total documents to determine if there is a next page
+        const total = await Note.countDocuments();
+        const hasNextPage = skip + notes.length < total;
+
+        // 4. Return the data payload + pagination metadata
+        res.status(200).json({
+            notes,
+            nextPage: hasNextPage ? page + 1 : null,
+            totalNotes: total
+        });
     } catch (error) {
         res.status(500).json({ message: (error as Error).message });
     }
