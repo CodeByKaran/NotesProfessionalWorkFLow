@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 import { type Note } from '../types';
 
@@ -18,5 +18,26 @@ export const useNotes = () => {
         },
         initialPageParam: 1, // Start on page 1
         getNextPageParam: (lastPage) => lastPage.nextPage, // React Query will use this to fetch the next chunk
+    });
+};
+
+interface CreateNotePayload {
+    title: string;
+    content: string;
+    tags?: string[];
+}
+
+export const useCreateNote = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (newNote: CreateNotePayload) => {
+            const { data } = await api.post<Note>('/notes', newNote);
+            return data;
+        },
+        // Crucial Senior Step: Invalidate the cache on success to force a UI refresh
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notes'] });
+        },
     });
 };
