@@ -1,0 +1,60 @@
+name: Build and Push Docker Images
+
+# 1. Trigger the workflow only when code is pushed to the main branch
+on:
+  push:
+    branches:
+      - main
+
+# 2. Define the environment variables we need
+env:
+  REGISTRY: ghcr.io
+  # github.repository gets your exact repo name (e.g., CodeByKaran/NotesProfessionalWorkFLow)
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    # Grant permissions to push to the GitHub Container Registry
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Log in to the GitHub Container Registry
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 3: Extract metadata (tags, labels) for Docker
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # Step 4: Build and Push the API (Backend) Image
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:latest
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # Step 5: Build and Push the Client (Frontend) Image
+      - name: Build and push Client image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-client:latest
+          labels: ${{ steps.meta.outputs.labels }}
