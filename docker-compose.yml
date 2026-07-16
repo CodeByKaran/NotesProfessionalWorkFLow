@@ -1,6 +1,16 @@
 version: '3.8'
 
 services:
+  client:
+    build:
+      context: ./client
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - api
   api:
     build:
       context: ./server
