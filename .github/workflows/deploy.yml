@@ -10,7 +10,7 @@ on:
 env:
   REGISTRY: ghcr.io
   # github.repository gets your exact repo name (e.g., CodeByKaran/NotesProfessionalWorkFLow)
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: codebykaran/notesprofessionalworkflow
 
 jobs:
   build-and-push:
