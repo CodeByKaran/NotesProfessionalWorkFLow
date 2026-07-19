@@ -6,23 +6,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Prevents aggressive refetching when you switch tabs
-      retry: 1, // Only retry failed requests once
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
 
 const App: React.FC = () => {
   return (
-    <QueryClientProvider client={queryClient} >
-    <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 font-sans">
-        {/* We will add a global Header/Nav component here later */}
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <div className="app-root">
+          <Dashboard />
+        </div>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };

@@ -1,148 +1,245 @@
-import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { X, FileText, Edit3, AlertCircle, Tag, Type } from 'lucide-react';
 import { useCreateNote, useUpdateNote } from '../hooks/useNote';
 import { type Note } from '../types';
 
 interface NoteModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    noteToEdit?: Note | null; // Added option to pass a note for editing
+  isOpen: boolean;
+  onClose: () => void;
+  noteToEdit?: Note | null;
 }
 
 const NoteModal: React.FC<NoteModalProps> = ({ isOpen, onClose, noteToEdit }) => {
-    const [title, setTitle] = useState('');
-    const [content, setContent] = useState('');
-    const [tagInput, setTagInput] = useState('');
-    const [validationError, setValidationError] = useState('');
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tagInput, setTagInput] = useState('');
+  const [validationError, setValidationError] = useState('');
 
-    const createMutation = useCreateNote();
-    const updateMutation = useUpdateNote();
+  const titleRef = useRef<HTMLInputElement>(null);
 
-    const isPending = createMutation.isPending || updateMutation.isPending;
+  const createMutation = useCreateNote();
+  const updateMutation = useUpdateNote();
+  const isPending = createMutation.isPending || updateMutation.isPending;
 
-    // Effect to seed the form state if we are in Edit Mode
-    useEffect(() => {
-        if (noteToEdit) {
-            setTitle(noteToEdit.title);
-            setContent(noteToEdit.content);
-            setTagInput(noteToEdit.tags ? noteToEdit.tags.join(', ') : '');
-        } else {
-            setTitle('');
-            setContent('');
-            setTagInput('');
-        }
-    }, [noteToEdit, isOpen]);
+  const isEditing = Boolean(noteToEdit);
 
-    if (!isOpen) return null;
+  // Seed form when modal opens or note changes
+  useEffect(() => {
+    if (noteToEdit) {
+      setTitle(noteToEdit.title);
+      setContent(noteToEdit.content);
+      setTagInput(noteToEdit.tags ? noteToEdit.tags.join(', ') : '');
+    } else {
+      setTitle('');
+      setContent('');
+      setTagInput('');
+    }
+    setValidationError('');
+  }, [noteToEdit, isOpen]);
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        setValidationError('');
+  // Auto-focus title field when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const id = setTimeout(() => titleRef.current?.focus(), 80);
+      return () => clearTimeout(id);
+    }
+  }, [isOpen]);
 
-        if (!title.trim() || !content.trim()) {
-            setValidationError('Title and Content are explicitly required.');
-            return;
-        }
-
-        const tags = tagInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-
-        const mutationOptions = {
-            onSuccess: () => {
-                setTitle('');
-                setContent('');
-                setTagInput('');
-                onClose();
-            }
-        };
-
-        if (noteToEdit) {
-            // Execute Update Mutation
-            updateMutation.mutate(
-                { id: noteToEdit._id, title, content, tags },
-                mutationOptions
-            );
-        } else {
-            // Execute Create Mutation
-            createMutation.mutate(
-                { title, content, tags },
-                mutationOptions
-            );
-        }
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isPending) onClose();
     };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen, isPending, onClose]);
 
-    return (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-gray-100 transform transition-all">
-                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                    <h2 className="text-xl font-semibold text-gray-900">
-                        {noteToEdit ? 'Edit Note' : 'Create New Note'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <X size={20} />
-                    </button>
-                </div>
+  // Block body scroll while modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {validationError && (
-                        <div className="text-sm bg-red-50 text-red-600 p-3 rounded-lg border border-red-100">
-                            {validationError}
-                        </div>
-                    )}
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      setValidationError('');
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            placeholder="Enter note title..."
-                        />
-                    </div>
+      if (!title.trim()) {
+        setValidationError('Title is required.');
+        titleRef.current?.focus();
+        return;
+      }
+      if (!content.trim()) {
+        setValidationError('Content cannot be empty.');
+        return;
+      }
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Content</label>
-                        <textarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            rows={4}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
-                            placeholder="Write your thoughts here..."
-                        />
-                    </div>
+      const tags = tagInput
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Tags (Comma separated)</label>
-                        <input
-                            type="text"
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                            placeholder="e.g. work, ideas, personal"
-                        />
-                    </div>
+      const mutationOptions = {
+        onSuccess: () => {
+          setTitle('');
+          setContent('');
+          setTagInput('');
+          onClose();
+        },
+        onError: (err: Error) => {
+          setValidationError(err.message || 'Something went wrong. Please try again.');
+        },
+      };
 
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            disabled={isPending}
-                            className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isPending}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 min-w-[100px] justify-center disabled:opacity-70"
-                        >
-                            {isPending ? <Loader2 size={16} className="animate-spin" /> : 'Save Changes'}
-                        </button>
-                    </div>
-                </form>
+      if (noteToEdit) {
+        updateMutation.mutate({ id: noteToEdit._id, title, content, tags }, mutationOptions);
+      } else {
+        createMutation.mutate({ title, content, tags }, mutationOptions);
+      }
+    },
+    [title, content, tagInput, noteToEdit, createMutation, updateMutation, onClose]
+  );
+
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.target === e.currentTarget && !isPending) onClose();
+    },
+    [isPending, onClose]
+  );
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      onClick={handleBackdropClick}
+    >
+      <div className="modal-panel">
+        {/* ─── Header ─── */}
+        <div className="modal-header">
+          <div className="modal-title" id="modal-title">
+            <div className="modal-title-icon" aria-hidden="true">
+              {isEditing ? <Edit3 size={16} /> : <FileText size={16} />}
             </div>
+            {isEditing ? 'Edit Note' : 'New Note'}
+          </div>
+          <button
+            id="modal-close-btn"
+            className="modal-close"
+            onClick={onClose}
+            disabled={isPending}
+            aria-label="Close modal"
+          >
+            <X size={15} />
+          </button>
         </div>
-    );
+
+        {/* ─── Form ─── */}
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="modal-body">
+            {/* Validation Error */}
+            {validationError && (
+              <div className="form-error" role="alert" aria-live="assertive">
+                <AlertCircle size={14} aria-hidden="true" style={{ flexShrink: 0 }} />
+                {validationError}
+              </div>
+            )}
+
+            {/* Title */}
+            <div className="form-group">
+              <label htmlFor="note-title" className="form-label">
+                <Type size={11} aria-hidden="true" />
+                Title
+              </label>
+              <input
+                id="note-title"
+                ref={titleRef}
+                type="text"
+                className="form-input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Give your note a great title…"
+                autoComplete="off"
+                maxLength={200}
+                required
+              />
+            </div>
+
+            {/* Content */}
+            <div className="form-group">
+              <label htmlFor="note-content" className="form-label">
+                <FileText size={11} aria-hidden="true" />
+                Content
+              </label>
+              <textarea
+                id="note-content"
+                className="form-textarea"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write your thoughts, ideas, or anything here…"
+                required
+              />
+            </div>
+
+            {/* Tags */}
+            <div className="form-group">
+              <label htmlFor="note-tags" className="form-label">
+                <Tag size={11} aria-hidden="true" />
+                Tags
+              </label>
+              <input
+                id="note-tags"
+                type="text"
+                className="form-input"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                placeholder="work, ideas, personal (comma separated)"
+                autoComplete="off"
+              />
+              <span className="form-hint">Separate multiple tags with commas</span>
+            </div>
+          </div>
+
+          {/* ─── Footer ─── */}
+          <div className="modal-footer">
+            <button
+              id="modal-cancel-btn"
+              type="button"
+              className="btn-ghost"
+              onClick={onClose}
+              disabled={isPending}
+            >
+              Cancel
+            </button>
+            <button
+              id="modal-submit-btn"
+              type="submit"
+              className="btn-submit"
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <div className="btn-spinner" aria-label="Saving…" />
+                  <span>{isEditing ? 'Updating…' : 'Creating…'}</span>
+                </>
+              ) : (
+                <span>{isEditing ? 'Save Changes' : 'Create Note'}</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default NoteModal;
